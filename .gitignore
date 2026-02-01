@@ -11,13 +11,14 @@ dist-ssr/
 .env.local
 .env.*.local
 
-# Python (for future backend)
+# Python / backend
 venv/
 __pycache__/
 *.py[cod]
 *.pyo
 *.db
 .Python
+backend/mindcare.db
 
 # Logs
 logs/

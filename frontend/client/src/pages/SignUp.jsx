@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { register } from "../api/auth";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -12,24 +13,35 @@ function SignUp() {
     phoneNumber: "",
     address: "",
   });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     const { username, password, age, phoneNumber, address, emergencyContact } = form;
     if (!username || !password) {
-      alert("Please enter username and password");
+      setError("Please enter username and password");
       return;
     }
     if (!age || !phoneNumber || !address || !emergencyContact) {
-      alert("Please fill all required fields");
+      setError("Please fill all required fields");
       return;
     }
-    navigate("/chat");
+    setLoading(true);
+    try {
+      await register({ ...form });
+      navigate("/chat");
+    } catch (err) {
+      setError(err.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,6 +51,9 @@ function SignUp() {
         <p className="text-gray-600 text-center mb-6">Create your account</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && (
+            <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          )}
           <input
             type="text"
             name="username"
@@ -111,9 +126,10 @@ function SignUp() {
           />
           <button
             type="submit"
-            className="bg-purple-600 text-white py-3 rounded-xl font-semibold hover:bg-purple-700 shadow-md hover:shadow-lg transition-all mt-2"
+            disabled={loading}
+            className="bg-purple-600 text-white py-3 rounded-xl font-semibold hover:bg-purple-700 shadow-md hover:shadow-lg transition-all mt-2 disabled:opacity-60"
           >
-            Sign Up
+            {loading ? "Signing up…" : "Sign Up"}
           </button>
         </form>
 

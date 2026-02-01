@@ -1,18 +1,30 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { login } from "../api/auth";
 
 function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
     if (!username || !password) {
-      alert("Please enter both username and password");
+      setError("Please enter both username and password");
       return;
     }
-    navigate("/chat");
+    setLoading(true);
+    try {
+      await login(username, password);
+      navigate("/chat");
+    } catch (err) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,6 +39,9 @@ function Login() {
 
         {/* Login Form */}
         <form onSubmit={handleLogin} className="w-full flex flex-col gap-5">
+          {error && (
+            <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          )}
           <input
             type="text"
             placeholder="Email or Username"
@@ -45,9 +60,10 @@ function Login() {
 
           <button
             type="submit"
-            className="bg-purple-600 text-white py-3 rounded-xl font-semibold hover:bg-purple-700 shadow-md hover:shadow-lg transition-all"
+            disabled={loading}
+            className="bg-purple-600 text-white py-3 rounded-xl font-semibold hover:bg-purple-700 shadow-md hover:shadow-lg transition-all disabled:opacity-60"
           >
-            Log In
+            {loading ? "Logging in…" : "Log In"}
           </button>
         </form>
 
