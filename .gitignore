@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Python (for future backend)
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.db
+.Python
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea
+.vscode/*
+*.suo
+*.ntvs*
+*.sw?
