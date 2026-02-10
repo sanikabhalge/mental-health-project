@@ -63,6 +63,8 @@ def get_current_user(
 def user_to_response(user: User) -> UserResponse:
     return UserResponse(
         id=user.id,
+        name=user.name,
         username=user.username,
+        role=user.role,
         created_at=user.created_at.isoformat() if user.created_at else None,
     )
