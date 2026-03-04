@@ -30,26 +30,47 @@ export async function login(username, password) {
   return data;
 }
 
-export async function register({ username, password, age, gender, emergencyContact, phoneNumber, address }) {
+export async function register({
+  username,
+  password,
+  age,
+  gender,
+  emergencyContact,
+  phoneNumber,
+  address,
+}) {
+  const payload = {
+    username,
+    password,
+    age: age ? Number(age) : null,
+    gender: gender || null,
+    phone_number: phoneNumber || null,
+    address: address || null,
+    emergency_contact: emergencyContact
+      ? {
+          name: emergencyContact.name,
+          number: emergencyContact.number,
+        }
+      : null,
+  };
+
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username,
-      password,
-      age: age ? Number(age) : null,
-      gender: gender || null,
-      emergency_contact: emergencyContact || null,
-      phone_number: phoneNumber || null,
-      address: address || null,
-    }),
+    body: JSON.stringify(payload),
   });
+
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const msg = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : (data.detail || data.error || "Registration failed");
+    const msg = Array.isArray(data.detail)
+      ? data.detail.map((d) => d.msg).join(", ")
+      : data.detail || data.error || "Registration failed";
     throw new Error(msg);
   }
+
   if (data.access_token) setStoredToken(data.access_token);
+
   return data;
 }
 

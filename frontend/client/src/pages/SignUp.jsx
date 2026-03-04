@@ -5,21 +5,36 @@ import { register } from "../api/auth";
 function SignUp() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    username: "",
-    password: "",
-    age: "",
-    gender: "",
-    emergencyContact: "",
-    phoneNumber: "",
-    address: "",
-  });
+  username: "",
+  password: "",
+  age: "",
+  gender: "",
+  phoneNumber: "",
+  emergencyContact: {
+    name: "",
+    number: "",
+  },
+  address: "",
+});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+  const { name, value } = e.target;
+
+  if (name.startsWith("emergencyContact.")) {
+    const field = name.split(".")[1];
+    setForm((prev) => ({
+      ...prev,
+      emergencyContact: {
+        ...prev.emergencyContact,
+        [field]: value,
+      },
+    }));
+  } else {
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,13 +44,23 @@ function SignUp() {
       setError("Please enter username and password");
       return;
     }
-    if (!age || !phoneNumber || !address || !emergencyContact) {
-      setError("Please fill all required fields");
-      return;
-    }
+    if (
+  !age ||
+  !phoneNumber ||
+  !address ||
+  !emergencyContact.name ||
+  !emergencyContact.number
+) {
+  setError("Please fill all required fields");
+  return;
+}
     setLoading(true);
     try {
-      await register({ ...form });
+      
+      await register({
+          ...form,
+          age: Number(form.age),
+                    });
       navigate("/chat");
     } catch (err) {
       setError(err.message || "Registration failed");
@@ -108,10 +133,19 @@ function SignUp() {
           />
           <input
             type="text"
-            name="emergencyContact"
-            placeholder="Emergency contact name & number *"
+            name="emergencyContact.name"
+            placeholder="Emergency contact name *"
             className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 transition"
-            value={form.emergencyContact}
+            value={form.emergencyContact.name}
+            onChange={handleChange}
+            required
+          />
+          <input
+            type="tel"
+            name="emergencyContact.number"
+            placeholder="Emergency contact number *"
+            className="p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 transition"
+            value={form.emergencyContact.number}
             onChange={handleChange}
             required
           />

@@ -8,10 +8,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     # Basic identity
-    name = Column(String(255), nullable=False)
+    # name = Column(String(255), nullable=False)
     username = Column(String(255), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False)  # "patient" or "psychiatrist"
+    # role = Column(String(50), nullable=False)  # "patient" or "psychiatrist"
 
     # Demographics & contact
     age = Column(Integer, nullable=True)
