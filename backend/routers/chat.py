@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter,Depends
 from schemas import ChatMessageCreate, ChatMessageResponse
 from groq import Groq
 from config import settings
-
+from auth import get_current_user
+from agents.alert_agent import detect_suicide_risk
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
 # Initialize Groq client
@@ -10,11 +11,12 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 
 
 @router.post("/message", response_model=ChatMessageResponse)
-def send_message(data: ChatMessageCreate):
+def send_message(data: ChatMessageCreate,user=Depends(get_current_user)):
     context = []
 
     if data.text:
         context.append(f"User text: {data.text}")
+        risk=detect_suicide_risk(data.text,user)
 
     if data.mic_on:
         context.append("User microphone is ON.")
