@@ -38,6 +38,7 @@ def detect_suicide_risk(text: str,user) -> bool:
     
     if "yes" in reply:
         trigger_alert(user,text)
+        return True
     
     else : 
         return False

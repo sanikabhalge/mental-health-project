@@ -17,4 +17,7 @@ def get_db():
 
 
 def init_db():
+    # Ensure model modules are imported so SQLAlchemy registers tables.
+    # (Required now that models live under backend/models/*)
+    import models  # noqa: F401
     Base.metadata.create_all(bind=engine)

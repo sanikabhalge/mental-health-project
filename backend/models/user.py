@@ -1,5 +1,8 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from __future__ import annotations
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
+
 from database import Base
 
 
@@ -7,11 +10,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+
     # Basic identity
-    # name = Column(String(255), nullable=False)
     username = Column(String(255), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
-    # role = Column(String(50), nullable=False)  # "patient" or "psychiatrist"
 
     # Demographics & contact
     age = Column(Integer, nullable=True)
@@ -23,7 +25,12 @@ class User(Base):
     emergency_contact_name = Column(String(255), nullable=True)
     emergency_contact_phone = Column(String(50), nullable=True)
 
-    # Psychiatrist-specific
-    degree_info = Column(Text, nullable=True)  # e.g. degree name / registration number / link
+    # Psychiatrist-specific (future / optional)
+    degree_info = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def name_for_profile(self) -> str:
+        # The project currently stores only `username`; we treat it as the profile name.
+        return self.username

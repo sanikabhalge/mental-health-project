@@ -1,18 +1,18 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from auth import create_access_token, hash_password, user_to_response, verify_password
 from database import get_db
-from models import User
-from schemas import UserCreate, UserLogin, Token
-from auth import hash_password, verify_password, create_access_token, user_to_response
+from models.user import User
+from schemas.auth_schema import Token, UserCreate, UserLogin
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=Token)
-def register(data: UserCreate, db: Session = Depends(get_db)):
-
-    # Check if username already exists
+def register(data: UserCreate, db: Session = Depends(get_db)) -> Token:
     existing_user = db.query(User).filter(User.username == data.username.strip()).first()
     if existing_user:
         raise HTTPException(
@@ -20,24 +20,19 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
             detail="Username already taken",
         )
 
-    # Extract emergency contact safely
     emergency_name = None
     emergency_phone = None
-
     if data.emergency_contact:
         emergency_name = data.emergency_contact.name
         emergency_phone = data.emergency_contact.number
 
-    # Create user
     user = User(
         username=data.username.strip(),
         password=hash_password(data.password),
-
         age=data.age,
         gender=data.gender,
         phone_number=data.phone_number.strip() if data.phone_number else None,
         address=data.address.strip() if data.address else None,
-
         emergency_contact_name=emergency_name,
         emergency_contact_phone=emergency_phone,
     )
@@ -46,20 +41,13 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    # Generate access token
     access_token = create_access_token(user.id)
-
-    return Token(
-        access_token=access_token,
-        user=user_to_response(user),
-    )
+    return Token(access_token=access_token, user=user_to_response(user))
 
 
 @router.post("/login", response_model=Token)
-def login(data: UserLogin, db: Session = Depends(get_db)):
-
+def login(data: UserLogin, db: Session = Depends(get_db)) -> Token:
     user = db.query(User).filter(User.username == data.username.strip()).first()
-
     if not user or not verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,8 +55,4 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         )
 
     access_token = create_access_token(user.id)
-
-    return Token(
-        access_token=access_token,
-        user=user_to_response(user),
-    )
+    return Token(access_token=access_token, user=user_to_response(user))

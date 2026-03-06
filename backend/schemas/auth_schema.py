@@ -1,4 +1,6 @@
-from typing import Optional, Literal
+from __future__ import annotations
+
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,9 +31,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    
     username: str
-    
     created_at: str | None = None
 
     class Config:
@@ -42,14 +42,3 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
-
-
-class ChatMessageCreate(BaseModel):
-    text: Optional[str] = None
-    mic_on: bool = False
-    camera_on: bool = False
-    session_id: str
-
-
-class ChatMessageResponse(BaseModel):
-    reply: str

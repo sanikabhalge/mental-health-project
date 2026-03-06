@@ -125,6 +125,7 @@ Then edit `.env` with your values. Required variables:
 SECRET_KEY=your-super-secret-key-change-in-production
 DATABASE_URL=sqlite:///./mindcare.db
 GROQ_API_KEY=your-groq-api-key
+GEMINI_API_KEY=your-gemini-api-key
 ADB_PATH=C:/path/to/platform-tools/adb.exe
 ```
 
@@ -132,7 +133,8 @@ ADB_PATH=C:/path/to/platform-tools/adb.exe
 |----------|----------|-------------|
 | `SECRET_KEY` | Yes | Used to sign JWTs. Use a long random string in production. |
 | `DATABASE_URL` | Yes | SQLite default: `sqlite:///./mindcare.db`. For PostgreSQL: `postgresql://user:pass@localhost/mindcare` |
-| `GROQ_API_KEY` | Yes | Get from [console.groq.com](https://console.groq.com). Used for chat and risk detection. |
+| `GROQ_API_KEY` | Yes | Get from [console.groq.com](https://console.groq.com). Used for crisis detection (alert agent). |
+| `GEMINI_API_KEY` | Yes | Gemini API key (used for therapy-style chat responses). |
 | `ADB_PATH` | Yes* | Full path to `adb.exe`. *Required only if using emergency alerts. |
 
 **Getting a Groq API Key:**
@@ -185,6 +187,7 @@ Default is `http://localhost:8000` if not set.
 | `SECRET_KEY` | `my-secret-key-123` | Min 32 chars recommended for production |
 | `DATABASE_URL` | `sqlite:///./mindcare.db` | SQLite (dev) or PostgreSQL (prod) |
 | `GROQ_API_KEY` | `gsk_xxxxx` | From Groq console |
+| `GEMINI_API_KEY` | `AIza...` | Gemini API key |
 | `ADB_PATH` | `C:/platform-tools/adb.exe` | Full path to ADB executable |
 
 ### Frontend (`frontend/client/.env`)

@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from models import User
-from schemas import UserResponse
+from models.user import User
+from schemas.auth_schema import UserResponse
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
