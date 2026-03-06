@@ -31,9 +31,18 @@ mental-health-project/
 │   │   ├── auth.py          # Login, register
 │   │   └── chat.py          # Chat API
 │   ├── agents/
-│   │   └── alert_agent.py   # LLM risk detection
-│   └── services/
-│       └── alert_service.py # ADB emergency alerts
+│   │   ├── alert_agent.py   # LLM risk detection
+│   │   ├── chat_agent.py    # Therapy-style chat (Groq LLM)
+│   │   └── emotion_detection_agents/
+│   │       ├── text_analysis.py   # Text emotion detection
+│   │       ├── audio_emt.py       # Audio emotion
+│   │       ├── video_emt.py       # Video/face emotion
+│   │       └── fusion.py          # Multimodal emotion fusion
+│   ├── services/
+│   │   ├── chat_service.py  # Chat orchestration
+│   │   └── alert_service.py # ADB emergency alerts
+│   └── utils/
+│       └── emotion_constants.py   # Emotion label mappings
 │
 ├── frontend/
 │   └── client/              # React + Vite app
@@ -99,7 +108,12 @@ mental-health-project/
 ### `routers/chat.py`
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/chat/message` | POST | Send message, get LLM reply. Protected (JWT). Runs risk detection. |
+| `/api/chat/message` | POST | Send message, get LLM reply. Protected (JWT). Calls `chat_service.process_chat_message`. |
+
+### `agents/chat_agent.py`
+- `generate_chat_reply(text, current_emotion, user)` – generates empathetic therapy-style response
+- Uses Groq `llama-3.1-8b-instant`
+- Prompt includes user profile (age, gender), current emotion, and user message
 
 ### `agents/alert_agent.py`
 - `detect_suicide_risk(text, user)` – sends text to Groq LLM
@@ -112,6 +126,27 @@ mental-health-project/
 - Uses `ADB_PATH` from config
 - Runs ADB to start a phone call to `emergency_contact_phone`
 - See [ADB section](#adb-android-debug-bridge) below
+
+### `services/chat_service.py`
+- `process_chat_message(data, user)` – orchestrates chat flow before sending to the LLM
+- **Flow:**
+  1. Suicide risk detection via `detect_suicide_risk(text, user)`
+  2. Interaction mode determination (text-only, mic-only, text+video, mic+video)
+  3. Emotion detection for the active mode (e.g. text-only via `text_emotion(text)`)
+  4. Chat reply generation via `generate_chat_reply(text, current_emotion, user)`
+- Returns the assistant reply string
+
+### `agents/emotion_detection_agents/text_analysis.py`
+- **Text emotion detection** – analyzes user text for emotion
+- **Model:** `j-hartmann/emotion-english-distilroberta-base` (HuggingFace transformers)
+- **Function:** `text_emotion(text: str)` → `{"emotion": str, "confidence": float}`
+- **Labels:** Maps raw labels (anger, disgust, fear, joy, neutral, sadness, surprise) to unified labels (angry, disgust, fearful, happy, neutral, sad, surprised) via `utils/emotion_constants.TEXT_EMOTION_MAP`
+- Empty text returns `{"emotion": "neutral", "confidence": 100}`
+
+### `utils/emotion_constants.py`
+- `TEXT_EMOTION_MAP` – maps HuggingFace emotion labels to unified labels
+- `EMOTIONS_MAP` – numeric ID to emotion name
+- `EMOTION_DIMENSIONS` – valence/arousal values per emotion
 
 ---
 
@@ -231,3 +266,10 @@ ADB has broad device access. Use only on trusted devices and in controlled envir
 
 - `MediaDevicesContext` and `useMediaDevices` manage mic/camera/speaker state.
 - `ChatHeader` toggles devices; `CameraView` shows the camera feed.
+
+### Text Emotion Detection
+
+- `text_emotion(text)` in `agents/emotion_detection_agents/text_analysis.py` analyzes user messages.
+- Uses HuggingFace `j-hartmann/emotion-english-distilroberta-base` for sentiment/emotion classification.
+- Output labels: angry, disgust, fearful, happy, neutral, sad, surprised.
+- `chat_service` passes the detected emotion to `chat_agent` so replies can be context-aware.

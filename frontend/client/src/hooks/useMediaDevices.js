@@ -26,68 +26,70 @@ export function useMediaDevices() {
     setSpeakerOn((prev) => !prev);
   }, []);
 
-  useEffect(() => {
-    if (!micOn) {
-      if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach((t) => t.stop());
-        micStreamRef.current = null;
-        setStreamsTick((n) => n + 1);
-      }
-      return;
-    }
-    let cancelled = false;
-    setError(null);
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        micStreamRef.current = stream;
-        setStreamsTick((n) => n + 1);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message || "Microphone access denied");
-          setMicOn(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [micOn]);
+  const recorderRef = useRef(null);
 
   useEffect(() => {
-    if (!cameraOn) {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach((t) => t.stop());
-        cameraStreamRef.current = null;
-        setStreamsTick((n) => n + 1);
+    if (!micOn) {
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+        recorderRef.current = null;
       }
       return;
     }
-    let cancelled = false;
-    setError(null);
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        cameraStreamRef.current = stream;
-        setStreamsTick((n) => n + 1);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message || "Camera access denied");
-          setCameraOn(false);
-        }
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      micStreamRef.current = stream;
+
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = async (event) => {
+        const blob = event.data;
+
+        const formData = new FormData();
+        formData.append("audio", blob);
+
+        await fetch("http://localhost:8000/api/emotion/audio", {
+          method: "POST",
+          body: formData
+        });
+      };
+
+      recorder.start(3000); // send audio every 3 seconds
+    });
+
+  }, [micOn]);
+
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (!cameraOn) return;
+
+    const interval = setInterval(() => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0);
+
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append("image", blob);
+
+        await fetch("http://localhost:8000/api/emotion/video", {
+          method: "POST",
+          body: formData
+        });
       });
-    return () => {
-      cancelled = true;
-    };
+
+    }, 4000); // every 4 seconds
+
+    return () => clearInterval(interval);
+
   }, [cameraOn]);
 
   useEffect(() => {

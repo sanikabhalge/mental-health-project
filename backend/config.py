@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     database_url: str 
     GROQ_API_KEY: str 
     ADB_PATH : str
+    MODEL_PATH :str
     class Config:
         env_file = ".env"
 

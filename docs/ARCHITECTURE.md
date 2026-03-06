@@ -62,10 +62,32 @@ User → Login/SignUp form → api/auth.js → POST /api/auth/login|register
 ```
 User types message → Chat.jsx → POST /api/chat/message (Bearer token)
   → chat router → get_current_user (JWT validation)
-  → Groq LLM (chat reply)
-  → alert_agent.detect_suicide_risk() (parallel/after)
+  → chat_service.process_chat_message(data, user)
+      1. detect_suicide_risk(text, user)  [alert_agent]
+      2. Determine interaction mode (text-only, mic-only, etc.)
+      3. Emotion detection (e.g. text_emotion for text-only mode)
+      4. generate_chat_reply(text, current_emotion, user)  [chat_agent]
   → If risk: alert_service.trigger_alert() → ADB → Phone call
   → Reply returned to frontend → MessageBubble
+```
+
+---
+
+## Chat Service & Emotion Flow
+
+```
+chat_service.process_chat_message
+    │
+    ├─► detect_suicide_risk(text, user)     [alert_agent]
+    │
+    ├─► Mode detection (text-only when text present, no mic/camera)
+    │
+    ├─► text_emotion(text)                 [emotion_detection_agents/text_analysis]
+    │       Model: j-hartmann/emotion-english-distilroberta-base
+    │       Returns: {emotion, confidence}
+    │
+    └─► generate_chat_reply(text, current_emotion, user)  [chat_agent]
+            Model: Groq llama-3.1-8b-instant
 ```
 
 ---
@@ -78,8 +100,8 @@ User types message → Chat.jsx → POST /api/chat/message (Bearer token)
 | **Routers** | HTTP handling, request validation, dependency injection |
 | **Auth** | JWT creation/validation, password hashing |
 | **Models/Schemas** | Data shape, validation |
-| **Agents** | LLM-based logic (risk detection) |
-| **Services** | External integrations (ADB) |
+| **Agents** | LLM-based logic (risk detection, chat), emotion detection |
+| **Services** | Chat orchestration, external integrations (ADB) |
 | **Database** | Persistence (users) |
 
 ---
@@ -116,7 +138,8 @@ User types message → Chat.jsx → POST /api/chat/message (Bearer token)
 | Backend | FastAPI, Uvicorn |
 | Database | SQLAlchemy, SQLite (PostgreSQL-ready) |
 | Auth | JWT (python-jose), bcrypt |
-| LLM | Groq (llama-3.1-8b-instant) |
+| Chat LLM | Groq (llama-3.1-8b-instant) |
+| Text Emotion | HuggingFace transformers (j-hartmann/emotion-english-distilroberta-base) |
 | Emergency | ADB (Android Debug Bridge) |
 
 ---
