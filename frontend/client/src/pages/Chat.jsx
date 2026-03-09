@@ -168,8 +168,22 @@ function Chat() {
 
   /* ================= SEND MESSAGE ================= */
 
-  const handleSend = async (text) => {
-    if (!text.trim()) return;
+  const handleSend = async (messageData) => {
+    let text = "";
+    let audioBlob = null;
+    let videoBlob = null;
+    let audioEmotion = null;
+    let videoEmotion = null;
+
+    if (typeof messageData === "string") {
+      text = messageData;
+    } else if (typeof messageData === "object") {
+      text = messageData.text || "";
+      audioBlob = messageData.audio_blob;
+      videoBlob = messageData.video_blob;
+    }
+
+    if (!text.trim() && !audioBlob && !videoBlob) return;
 
     if (checkRiskPhrases(text)) {
       setRiskAlert(true);
@@ -178,7 +192,7 @@ function Chat() {
     const userMsg = {
       id: Date.now(),
       sender: "user",
-      text,
+      text: text || "[Audio/Video Message]",
     };
 
     // Add user message immediately
@@ -197,20 +211,49 @@ function Chat() {
     setIsBotTyping(true);
 
     try {
-      // Backend call
+      // Process audio emotion if available
+      if (audioBlob) {
+        const formData = new FormData();
+        formData.append("file", audioBlob, "audio.webm");
+        const audioRes = await fetch("http://localhost:8000/api/emotion/audio", {
+          method: "POST",
+          body: formData,
+        });
+        if (audioRes.ok) {
+          audioEmotion = await audioRes.json();
+          console.log("Audio emotion:", audioEmotion);
+        }
+      }
+
+      // Process video emotion if available
+      if (videoBlob) {
+        const formData = new FormData();
+        formData.append("file", videoBlob, "video.webm");
+        const videoRes = await fetch("http://localhost:8000/api/emotion/video", {
+          method: "POST",
+          body: formData,
+        });
+        if (videoRes.ok) {
+          videoEmotion = await videoRes.json();
+          console.log("Video emotion:", videoEmotion);
+        }
+      }
+
+      // Send chat message
       const token = localStorage.getItem("mindcare_token");
       const res = await fetch("http://localhost:8000/api/chat/message", {
-            method: "POST",
-            headers: {
-                  "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,}, 
-              body: JSON.stringify({
-              text,
-              mic_on: false,
-              camera_on: false,
-              session_id: "default",
-              }),
-
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text: text || null,
+          audio_data: null,
+          video_data: null,
+          audio_emotion: audioEmotion,
+          video_emotion: videoEmotion,
+        }),
       });
 
       if (!res.ok) throw new Error("LLM request failed");
@@ -220,7 +263,10 @@ function Chat() {
       const botMsg = {
         id: Date.now() + 1,
         sender: "bot",
-        text: data.reply ?? "I’m here with you.",
+        text: data.reply ?? "I'm here with you.",
+        emotion: data.emotion_detected,
+        confidence: data.confidence,
+        mode: data.mode,
       };
 
       // Add bot response
@@ -241,7 +287,7 @@ function Chat() {
       const errorMsg = {
         id: Date.now() + 2,
         sender: "bot",
-        text: "I’m having trouble responding right now. Please try again.",
+        text: "I'm having trouble responding right now. Please try again.",
       };
 
       setUnsavedMessages((prev) => [...prev, errorMsg]);
@@ -296,6 +342,9 @@ function Chat() {
                   key={msg.id}
                   sender={msg.sender}
                   text={msg.text}
+                  emotion={msg.emotion}
+                  confidence={msg.confidence}
+                  mode={msg.mode}
                 />
               ))}
 

@@ -1,31 +1,29 @@
-EMOTIONS_MAP = {
-    0: 'neutral',
-    1: 'calm',
-    2: 'happy',
-    3: 'sad',
-    4: 'angry',
-    5: 'fearful',
-    6: 'disgust',
-    7: 'surprised'
-}
+# Maps raw model emotion labels → standardized labels used throughout the app
 
 TEXT_EMOTION_MAP = {
-    'anger': 'angry',
-    'disgust': 'disgust',
-    'fear': 'fearful',
-    'joy': 'happy',
-    'neutral': 'neutral',
-    'sadness': 'sad',
-    'surprise': 'surprised'
+    "angry":     "angry",
+    "disgust":   "angry",       # DeepFace has disgust → map to angry
+    "fear":      "fearful",
+    "fearful":   "fearful",
+    "happy":     "happy",
+    "joy":       "happy",
+    "sad":       "sad",
+    "sadness":   "sad",
+    "surprise":  "surprised",
+    "surprised": "surprised",
+    "neutral":   "neutral",
+    "calm":      "calm",
 }
 
-EMOTION_DIMENSIONS = {
-    'neutral': {'valence': 0.0, 'arousal': 0.0},
-    'calm': {'valence': 0.3, 'arousal': -0.5},
-    'happy': {'valence': 0.8, 'arousal': 0.6},
-    'sad': {'valence': -0.7, 'arousal': -0.6},
-    'angry': {'valence': -0.8, 'arousal': 0.8},
-    'fearful': {'valence': -0.9, 'arousal': 0.9},
-    'disgust': {'valence': -0.6, 'arousal': 0.4},
-    'surprised': {'valence': 0.0, 'arousal': 0.7}
+# Legacy alias used by some modules
+EMOTIONS_MAP = TEXT_EMOTION_MAP
+
+EMOTIONS_DISPLAY = {
+    "angry":     "Angry",
+    "fearful":   "Fearful",
+    "happy":     "Happy",
+    "sad":       "Sad",
+    "surprised": "Surprised",
+    "neutral":   "Neutral",
+    "calm":      "Calm",
 }
