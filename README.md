@@ -39,8 +39,12 @@ cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1    # Windows PowerShell
 # source venv/bin/activate     # Mac/Linux
-pip install -r requirements.txt
-
+pip install -r requirements.txt //the requirment.txt should work but if not then do
+cd ..
+pip install -r req.txt
+#also need to install the ffmpeg package 
+https://www.gyan.dev/ffmpeg/builds/ # extract this zip file 
+#then add ffmpeg path to env vairable C:\ffmpeg\bin
 # 3. Create backend/.env (see Configuration Reference below)
 # Copy .env.example and fill in values
 
