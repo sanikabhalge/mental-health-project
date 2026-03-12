@@ -1,127 +1,208 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 
-export function useMediaDevices() {
-  const [micOn, setMicOn] = useState(false);
-  const [cameraOn, setCameraOn] = useState(false);
-  const [speakerOn, setSpeakerOn] = useState(true);
+export function useMediaDevices({ onEmotionDetected, onBotReply } = {}) {
+
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [error, setError] = useState(null);
 
-  const micStreamRef = useRef(null);
-  const cameraStreamRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const gainNodeRef = useRef(null);
-  const [, setStreamsTick] = useState(0);
+  const audioRecorderRef = useRef(null);
+  const videoRecorderRef = useRef(null);
 
-  const toggleMic = useCallback(() => {
-    setError(null);
-    setMicOn((prev) => !prev);
-  }, []);
+  const audioStreamRef = useRef(null);
+  const videoStreamRef = useRef(null);
 
-  const toggleCamera = useCallback(() => {
-    setError(null);
-    setCameraOn((prev) => !prev);
-  }, []);
-
-  const toggleSpeaker = useCallback(() => {
-    setSpeakerOn((prev) => !prev);
-  }, []);
-
-  const recorderRef = useRef(null);
-
-  useEffect(() => {
-    if (!micOn) {
-      if (recorderRef.current) {
-        recorderRef.current.stop();
-        recorderRef.current = null;
-      }
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      micStreamRef.current = stream;
-
-      const recorder = new MediaRecorder(stream);
-      recorderRef.current = recorder;
-
-      recorder.ondataavailable = async (event) => {
-        const blob = event.data;
-
-        const formData = new FormData();
-        formData.append("audio", blob);
-
-        await fetch("http://localhost:8000/api/emotion/audio", {
-          method: "POST",
-          body: formData
-        });
-      };
-
-      recorder.start(3000); // send audio every 3 seconds
-    });
-
-  }, [micOn]);
+  const audioChunksRef = useRef([]);
+  const videoChunksRef = useRef([]);
 
   const videoRef = useRef(null);
 
-  useEffect(() => {
-    if (!cameraOn) return;
+  /* ================= AUDIO ================= */
 
-    const interval = setInterval(() => {
-      const video = videoRef.current;
-      if (!video) return;
+  const toggleAudioRecording = async () => {
 
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+    try {
 
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
+      if (!isRecordingAudio) {
 
-      canvas.toBlob(async (blob) => {
-        const formData = new FormData();
-        formData.append("image", blob);
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        await fetch("http://localhost:8000/api/emotion/video", {
-          method: "POST",
-          body: formData
+        audioStreamRef.current = stream;
+
+        const recorder = new MediaRecorder(stream);
+        audioRecorderRef.current = recorder;
+
+        audioChunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstop = async () => {
+
+          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+
+          const formData = new FormData();
+          formData.append("audio", blob, "audio.webm");
+
+          try {
+
+            const token = localStorage.getItem("mindcare_token");
+
+            const res = await fetch("http://localhost:8000/api/chat/audio", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`
+              },
+              body: formData
+            });
+
+            const data = await res.json();
+
+            if (onBotReply) {
+              onBotReply(data);
+            }
+
+            if (onEmotionDetected && data?.emotion) {
+              onEmotionDetected(data);
+            }
+
+          } catch (err) {
+            console.error("Audio upload failed", err);
+          }
+
+          if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach(t => t.stop());
+            audioStreamRef.current = null;
+          }
+
+        };
+
+        recorder.start();
+        setIsRecordingAudio(true);
+
+      } else {
+
+        audioRecorderRef.current.stop();
+        setIsRecordingAudio(false);
+
+      }
+
+    } catch (err) {
+      setError(err.message);
+    }
+
+  };
+
+  /* ================= VIDEO ================= */
+
+  const toggleVideoRecording = async () => {
+
+    try {
+
+      if (!isRecordingVideo) {
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
         });
-      });
 
-    }, 4000); // every 4 seconds
+        videoStreamRef.current = stream;
 
-    return () => clearInterval(interval);
+        /* attach stream to video element */
 
-  }, [cameraOn]);
+        setTimeout(() => {
+  if (videoRef.current) {
+    videoRef.current.srcObject = stream;
+  }
+}, 100);
 
-  useEffect(() => {
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = speakerOn ? 1 : 0;
+        const recorder = new MediaRecorder(stream);
+        videoRecorderRef.current = recorder;
+
+        videoChunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            videoChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstop = async () => {
+
+          const blob = new Blob(videoChunksRef.current, {
+            type: "video/webm"
+          });
+
+          const formData = new FormData();
+          formData.append("video", blob, "video.webm");
+
+          try {
+
+            const token = localStorage.getItem("mindcare_token");
+
+            const res = await fetch("http://localhost:8000/api/chat/video", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`
+              },
+              body: formData
+            });
+
+            const data = await res.json();
+
+            if (onBotReply) {
+              onBotReply(data);
+            }
+
+            if (onEmotionDetected && data?.emotion) {
+              onEmotionDetected(data);
+            }
+
+          } catch (err) {
+            console.error("Video upload failed", err);
+          }
+
+          /* stop camera */
+
+          if (videoStreamRef.current) {
+            videoStreamRef.current.getTracks().forEach(t => t.stop());
+            videoStreamRef.current = null;
+          }
+
+        };
+
+        recorder.start();
+        setIsRecordingVideo(true);
+
+      } else {
+
+        videoRecorderRef.current.stop();
+        setIsRecordingVideo(false);
+
+      }
+
+    } catch (err) {
+      setError(err.message);
     }
-  }, [speakerOn]);
 
-  const initSpeakerContext = useCallback(() => {
-    if (!audioContextRef.current) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const gain = ctx.createGain();
-      gain.gain.value = speakerOn ? 1 : 0;
-      gain.connect(ctx.destination);
-      audioContextRef.current = ctx;
-      gainNodeRef.current = gain;
-    }
-    if (gainNodeRef.current) gainNodeRef.current.gain.value = speakerOn ? 1 : 0;
-    return audioContextRef.current;
-  }, [speakerOn]);
+  };
+
+  /* ================= RETURN ================= */
 
   return {
-    micOn,
-    cameraOn,
-    speakerOn,
-    toggleMic,
-    toggleCamera,
-    toggleSpeaker,
-    getMicStream: () => micStreamRef.current,
-    getCameraStream: () => cameraStreamRef.current,
-    getSpeakerGainNode: () => gainNodeRef.current,
-    initSpeakerContext,
-    error,
+
+    isRecordingAudio,
+    isRecordingVideo,
+
+    toggleAudioRecording,
+    toggleVideoRecording,
+
+    videoRef,
+    error
+
   };
+
 }

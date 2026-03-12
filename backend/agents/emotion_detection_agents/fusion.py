@@ -1,31 +1,28 @@
-def fuse_emotions(text=None, audio=None, video=None):
+def fuse_emotions(audio_emotion, video_emotion, audio_conf=0.0, video_conf=0.0):
 
-    weights = {
-        "text": 0.4,
-        "audio": 0.35,
-        "video": 0.25
-    }
+    # fallback cases
+    if not audio_emotion and not video_emotion:
+        return "neutral", 0.5
 
-    scores = {}
+    if audio_emotion and not video_emotion:
+        return audio_emotion, audio_conf
 
-    if text:
-        e = text["emotion"]
-        scores[e] = scores.get(e, 0) + text["confidence"] * weights["text"]
+    if video_emotion and not audio_emotion:
+        return video_emotion, video_conf
 
-    if audio:
-        e = audio["emotion"]
-        scores[e] = scores.get(e, 0) + audio["confidence"] * weights["audio"]
+    # if both emotions agree
+    if audio_emotion == video_emotion:
+        confidence = (audio_conf + video_conf) / 2
+        return audio_emotion, confidence
 
-    if video:
-        e = video["emotion"]
-        scores[e] = scores.get(e, 0) + video["confidence"] * weights["video"]
+    # weighted fusion
+    audio_weight = 0.6
+    video_weight = 0.4
 
-    if not scores:
-        return {"emotion": "neutral", "confidence": 0}
+    audio_score = audio_conf * audio_weight
+    video_score = video_conf * video_weight
 
-    final_emotion = max(scores, key=scores.get)
-
-    return {
-        "emotion": final_emotion,
-        "confidence": scores[final_emotion]
-    }
+    if audio_score >= video_score:
+        return audio_emotion, audio_score
+    else:
+        return video_emotion, video_score

@@ -11,7 +11,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=Token)
 def register(data: UserCreate, db: Session = Depends(get_db)):
-
+    print("Register request received")
     # Check if username already exists
     existing_user = db.query(User).filter(User.username == data.username.strip()).first()
     if existing_user:

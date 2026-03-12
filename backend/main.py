@@ -7,7 +7,7 @@ from database import init_db
 
 from routers import chat
 from routers import auth
-from routers import emotion
+
 
 load_dotenv()
 
@@ -18,24 +18,40 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MindCare API", lifespan=lifespan)
+app = FastAPI(
+    title="MindCare API",
+    lifespan=lifespan
+)
 
+
+# ---------------- CORS ---------------- #
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Include routers
-app.include_router(chat.router)
-app.include_router(auth.router, prefix="/api")
-app.include_router(emotion.router)
+# ---------------- ROUTERS ---------------- #
 
+# Chat endpoints
+app.include_router(chat.router)
+
+# Auth endpoints
+app.include_router(auth.router, prefix="/api")
+
+
+# ---------------- ROOT ---------------- #
 
 @app.get("/")
 def root():
-    return {"message": "MindCare API", "docs": "/docs"}
+    return {
+        "message": "MindCare API",
+        "docs": "/docs"
+    }

@@ -66,3 +66,31 @@ def user_to_response(user: User) -> UserResponse:
         username=user.username,
         created_at=user.created_at.isoformat() if user.created_at else None,
     )
+    
+from jose import jwt
+from fastapi import HTTPException
+from database import SessionLocal
+from models import User
+from config import settings
+
+SECRET_KEY = settings.secret_key
+ALGORITHM = "HS256"
+
+
+def get_user_from_token(token: str):
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    db = SessionLocal()
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user

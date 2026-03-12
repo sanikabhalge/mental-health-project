@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     database_url: str 
     GROQ_API_KEY: str 
-    ADB_PATH : str
+    # Optional during local/dev testing.
+    # Set `ADB_PATH` in `.env` when you want emergency-call triggering enabled.
+    ADB_PATH: str | None = None
     MODEL_PATH :str
     class Config:
         env_file = ".env"

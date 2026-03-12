@@ -52,4 +52,7 @@ class ChatMessageCreate(BaseModel):
 
 
 class ChatMessageResponse(BaseModel):
+    print("chatmessage class started")
     reply: str
+    emotion: str | None = None
+    transcript: str | None = None

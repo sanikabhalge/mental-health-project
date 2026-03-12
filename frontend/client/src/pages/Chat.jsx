@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useMediaDevices } from "../hooks/useMediaDevices";
-import { MediaDevicesContext } from "../context/MediaDevicesContext";
+
 import { loadChatState, saveChatState } from "../utils/storage";
 import { checkRiskPhrases } from "../utils/riskDetection";
 
@@ -40,8 +40,47 @@ function getTodayISO() {
 /* ---------------- Main Component ---------------- */
 
 function Chat() {
-  const mediaDevices = useMediaDevices();
-  const { cameraOn, getCameraStream } = mediaDevices;
+
+  const [emotion, setEmotion] = useState(null);
+
+  /* ---------- Media Devices Hook ---------- */
+
+  const mediaDevices = useMediaDevices({
+  onEmotionDetected: (data) => {
+    if (data?.emotion) {
+      setEmotion(data);
+    }
+  },
+
+  onBotReply: (data) => {
+    const botMsg = {
+      id: Date.now(),
+      sender: "bot",
+      text: data.reply ?? "I'm here with you.",
+    };
+    
+    if (currentChatId !== null) {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === currentChatId
+            ? { ...c, messages: [...c.messages, botMsg] }
+            : c
+        )
+      );
+    } else {
+      setUnsavedMessages((prev) => [...prev, botMsg]);
+    }
+  }
+});
+
+  const {
+    videoRef,
+    isRecordingVideo,
+  } = mediaDevices;
+
+  const cameraOn = isRecordingVideo;
+
+  /* ---------- Chat State ---------- */
 
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -60,6 +99,7 @@ function Chat() {
   const scrollAnchorRef = useRef(null);
 
   /* ---------- Load Saved Chats ---------- */
+
   useEffect(() => {
     const s = loadChatState();
     setChats(s.chats);
@@ -69,14 +109,14 @@ function Chat() {
   }, []);
 
   /* ---------- Save Chat State ---------- */
+
   useEffect(() => {
     if (!didLoadRef.current) return;
     saveChatState({ chats, unsavedMessages, currentChatId });
   }, [chats, unsavedMessages, currentChatId]);
 
-  const cameraStream = getCameraStream();
-
   /* ---------- Drag Floating Camera ---------- */
+
   const handleDragStart = useCallback(
     (e) => {
       setDragOffset({
@@ -121,17 +161,20 @@ function Chat() {
   }, [dragging, dragOffset]);
 
   /* ---------- Current Messages ---------- */
+
   const messages =
     currentChatId !== null
       ? chats.find((c) => c.id === currentChatId)?.messages ?? []
       : unsavedMessages;
 
   /* ---------- Auto Scroll ---------- */
+
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isBotTyping]);
 
   /* ---------- Sidebar Date Grouping ---------- */
+
   const chatsByDate = useMemo(() => {
     const map = {};
     [...chats]
@@ -145,6 +188,7 @@ function Chat() {
   }, [chats]);
 
   /* ---------- New Chat ---------- */
+
   const handleNewChat = () => {
     if (unsavedMessages.length > 0) {
       const title = unsavedMessages[0]?.text?.slice(0, 36) || "New Chat";
@@ -158,6 +202,7 @@ function Chat() {
           messages: [...unsavedMessages],
         },
       ]);
+
       setUnsavedMessages([]);
     }
 
@@ -166,9 +211,10 @@ function Chat() {
 
   const handleSelectChat = (id) => setCurrentChatId(id);
 
-  /* ================= SEND MESSAGE ================= */
+  /* ================= SEND TEXT MESSAGE ================= */
 
   const handleSend = async (text) => {
+
     if (!text.trim()) return;
 
     if (checkRiskPhrases(text)) {
@@ -181,7 +227,6 @@ function Chat() {
       text,
     };
 
-    // Add user message immediately
     if (currentChatId !== null) {
       setChats((prev) =>
         prev.map((c) =>
@@ -197,33 +242,33 @@ function Chat() {
     setIsBotTyping(true);
 
     try {
-      // Backend call
-      const token = localStorage.getItem("mindcare_token");
-      const res = await fetch("http://localhost:8000/api/chat/message", {
-            method: "POST",
-            headers: {
-                  "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,}, 
-              body: JSON.stringify({
-              text,
-              mic_on: false,
-              camera_on: false,
-              session_id: "default",
-              }),
 
+      const token = localStorage.getItem("mindcare_token");
+
+      const res = await fetch("http://localhost:8000/api/chat/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text,
+          session_id: "default",
+        }),
       });
 
-      if (!res.ok) throw new Error("LLM request failed");
-
       const data = await res.json();
+
+      if (data?.emotion) {
+        setEmotion(data);
+      }
 
       const botMsg = {
         id: Date.now() + 1,
         sender: "bot",
-        text: data.reply ?? "I’m here with you.",
+        text: data.reply ?? "I'm here with you.",
       };
 
-      // Add bot response
       if (currentChatId !== null) {
         setChats((prev) =>
           prev.map((c) =>
@@ -235,22 +280,25 @@ function Chat() {
       } else {
         setUnsavedMessages((prev) => [...prev, botMsg]);
       }
+
     } catch (err) {
-      console.error(err);
 
       const errorMsg = {
         id: Date.now() + 2,
         sender: "bot",
-        text: "I’m having trouble responding right now. Please try again.",
+        text: "I'm having trouble responding right now. Please try again.",
       };
 
       setUnsavedMessages((prev) => [...prev, errorMsg]);
+
     } finally {
       setIsBotTyping(false);
     }
+
   };
 
   /* ---------- Toggle Camera ---------- */
+
   const toggleCameraViewMode = () => {
     setCameraViewMode((m) => (m === "floating" ? "full" : "floating"));
   };
@@ -258,63 +306,81 @@ function Chat() {
   /* ================= UI ================= */
 
   return (
-    <MediaDevicesContext.Provider value={mediaDevices}>
-      <div className="flex h-screen bg-gray-100">
-        <Sidebar
-          chatsByDate={chatsByDate}
-          currentChatId={currentChatId}
-          onNewChat={handleNewChat}
-          onSelectChat={handleSelectChat}
-        />
+    <div className="flex h-screen bg-gray-100">
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <ChatHeader />
+      <Sidebar
+        chatsByDate={chatsByDate}
+        currentChatId={currentChatId}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+      />
 
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {cameraOn && cameraStream && (
-              <CameraView
-                stream={cameraStream}
-                mode={cameraViewMode}
-                onModeToggle={toggleCameraViewMode}
-                position={floatingPosition}
-                onDragStart={handleDragStart}
-                isDragging={dragging}
-              />
+      <div className="flex-1 flex flex-col min-w-0">
+
+        <ChatHeader
+  isRecordingAudio={mediaDevices.isRecordingAudio}
+  isRecordingVideo={mediaDevices.isRecordingVideo}
+  toggleAudioRecording={mediaDevices.toggleAudioRecording}
+  toggleVideoRecording={mediaDevices.toggleVideoRecording}
+  error={mediaDevices.error}
+/>
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+
+          {cameraOn && (
+            <CameraView
+              videoRef={videoRef}
+              cameraOn={cameraOn}
+              mode={cameraViewMode}
+              onModeToggle={toggleCameraViewMode}
+              position={floatingPosition}
+              onDragStart={handleDragStart}
+            />
+          )}
+
+          <div
+            className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col ${
+              cameraOn && cameraViewMode === "full" ? "hidden" : ""
+            }`}
+          >
+
+            {emotion && (
+              <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm w-fit">
+                Detected Emotion: <strong>{emotion.emotion}</strong>
+              </div>
             )}
 
-            <div
-              className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col ${
-                cameraOn && cameraViewMode === "full" ? "hidden" : ""
-              }`}
-            >
-              {riskAlert && (
-                <RiskAlertBanner onDismiss={() => setRiskAlert(false)} />
-              )}
+            {riskAlert && (
+              <RiskAlertBanner onDismiss={() => setRiskAlert(false)} />
+            )}
 
-              {messages.map((msg) => (
-                <MessageBubble
-                  key={msg.id}
-                  sender={msg.sender}
-                  text={msg.text}
-                />
-              ))}
+            {messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                sender={msg.sender}
+                text={msg.text}
+              />
+            ))}
 
-              {isBotTyping && (
-                <div className="flex justify-start">
-                  <span className="text-sm text-gray-500 italic">
-                    Bot is typing…
-                  </span>
-                </div>
-              )}
+            {isBotTyping && (
+              <div className="flex justify-start">
+                <span className="text-sm text-gray-500 italic">
+                  Bot is typing…
+                </span>
+              </div>
+            )}
 
-              <div ref={scrollAnchorRef} />
-            </div>
+            <div ref={scrollAnchorRef} />
+
           </div>
 
-          <ChatInput onSend={handleSend} />
         </div>
+
+        <ChatInput onSend={handleSend} />
+
       </div>
-    </MediaDevicesContext.Provider>
+
+    </div>
   );
 }
 
