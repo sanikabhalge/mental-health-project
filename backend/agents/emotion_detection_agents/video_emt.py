@@ -1,6 +1,7 @@
 import cv2
 import ffmpeg
 import tempfile
+import os
 
 from deepface import DeepFace
 
@@ -11,95 +12,117 @@ from agents.emotion_detection_agents.fusion import fuse_emotions
 
 def analyze_video_emotion(video_bytes):
 
+    video_path = None
+    wav_path = None
+
     try:
 
-        # ---------------- SAVE VIDEO ---------------- #
+        # -------- SAVE VIDEO (Windows safe) -------- #
 
-        with tempfile.NamedTemporaryFile(suffix=".webm") as temp_video:
+        temp = tempfile.NamedTemporaryFile(delete=False, suffix=".webm")
+        temp.write(video_bytes)
+        temp.close()
 
-            temp_video.write(video_bytes)
-            temp_video.flush()
+        video_path = temp.name
 
-            video_path = temp_video.name
+        # sanity check
+        if os.path.getsize(video_path) < 5000:
+            print("video too small → corrupted")
+            return {
+                "emotion": "neutral",
+                "confidence": 0.0,
+                "transcript": ""
+            }
 
-            # ---------------- EXTRACT AUDIO ---------------- #
+        # -------- EXTRACT AUDIO → WAV -------- #
 
-            process = (
-                ffmpeg
-                .input(video_path)
-                .output("pipe:1", format="webm")
-                .run_async(pipe_stdout=True, pipe_stderr=True)
-            )
+        wav_path = video_path.replace(".webm", ".wav")
 
-            audio_bytes, _ = process.communicate()
+        (
+            ffmpeg
+            .input(video_path)
+            .output(wav_path, ac=1, ar=16000)
+            .run(overwrite_output=True, quiet=True)
+        )
 
+        audio_bytes = b""
+        if os.path.exists(wav_path):
+            with open(wav_path, "rb") as f:
+                audio_bytes = f.read()
+
+        audio_emotion = None
+        audio_confidence = 0.0
+        transcript = ""
+
+        if audio_bytes:
             audio_result = analyze_audio_emotion(audio_bytes)
-
-            transcript = audio_result.get("transcript")
+            transcript = audio_result.get("transcript", "")
             audio_emotion = audio_result.get("emotion")
             audio_confidence = audio_result.get("confidence", 0.0)
 
-            # ---------------- FACE EMOTION ---------------- #
+        # -------- FACE EMOTION -------- #
 
-            cap = cv2.VideoCapture(video_path)
+        cap = cv2.VideoCapture(video_path)
 
-            face_emotion = None
-            face_confidence = 0.0
+        face_emotion = None
+        face_confidence = 0.0
+        frame_count = 0
 
-            frame_count = 0
+        while cap.isOpened():
 
-            while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-                ret, frame = cap.read()
+            frame_count += 1
 
-                if not ret:
-                    break
+            if frame_count % 15 != 0:
+                continue
 
-                frame_count += 1
+            try:
 
-                # sample every 20 frames
-                if frame_count % 20 != 0:
-                    continue
+                analysis = DeepFace.analyze(
+                    frame,
+                    actions=["emotion"],
+                    enforce_detection=False
+                )
 
-                try:
+                dominant = analysis[0]["dominant_emotion"]
 
-                    analysis = DeepFace.analyze(
-                        frame,
-                        actions=["emotion"],
-                        enforce_detection=False
-                    )
+                face_confidence = float(
+                    analysis[0]["emotion"][dominant]
+                )
 
-                    dominant = analysis[0]["dominant_emotion"]
+                face_emotion = TEXT_EMOTION_MAP.get(
+                    dominant,
+                    "neutral"
+                )
 
-                    face_confidence = float(analysis[0]["emotion"][dominant])
+                break
 
-                    face_emotion = TEXT_EMOTION_MAP.get(dominant, "neutral")
+            except Exception:
+                continue
 
-                    break
+        cap.release()
 
-                except Exception:
-                    continue
+        # -------- FUSION -------- #
 
-            cap.release()
+        emotion_detected, confidence = fuse_emotions(
+            audio_emotion,
+            face_emotion,
+            audio_confidence,
+            face_confidence
+        )
 
-            # ---------------- FUSION ---------------- #
+        result = {
+            "emotion": emotion_detected,
+            "confidence": confidence,
+            "transcript": transcript
+        }
 
-            emotion_detected, confidence = fuse_emotions(
-                audio_emotion,
-                face_emotion,
-                audio_confidence,
-                face_confidence
-            )
+        print("video emotion detected:", result)
 
-            result = {
-                "emotion": emotion_detected,
-                "confidence": confidence,
-                "transcript": transcript
-            }
-
-            print("video emotion detected:", result)
-
-            return result
+        return result
 
     except Exception as e:
 
@@ -107,6 +130,14 @@ def analyze_video_emotion(video_bytes):
 
         return {
             "emotion": "neutral",
-            "confidence": 0.5,
+            "confidence": 0.0,
             "transcript": ""
         }
+
+    finally:
+
+        if video_path and os.path.exists(video_path):
+            os.remove(video_path)
+
+        if wav_path and os.path.exists(wav_path):
+            os.remove(wav_path)
